@@ -1,11 +1,19 @@
 {
-  "name": "robotvip-server",
-  "version": "1.0.0", 
-  "main": "server.js",
+  "name": "ae-sexy-baccarat-api",
+  "version": "1.0.0",
+  "description": "API Synchronizer for AE-SEXY Baccarat",
+  "main": "poll.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node poll.js",
+    "dev": "nodemon poll.js"
   },
   "dependencies": {
-    "express": "^4.18.0"
-  }
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "puppeteer-core": "^21.5.0"
+  },
+  "author": "",
+  "license": "ISC"
 }
