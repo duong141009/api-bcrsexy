@@ -236,9 +236,12 @@ async function pollLoop() {
                                 }
                             }
 
+                            const vnTime = new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+
                             TABLE_DATA[displayName] = {
                                 cau: "",
                                 results: newResults,
+                                time: vnTime,
                                 stats: {
                                     p_count: pCount,
                                     t_count: tCount,
