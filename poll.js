@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const https = require('https');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const axios = require('axios');
 
 // ================= CẤU HÌNH (SỬA Ở ĐÂY) =================
@@ -48,12 +48,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // ================= AUTO LOGIN =================
 async function autoLoginAndGetHeaders() {
     console.log("\n🤖 Đang khởi động Chrome...");
-    const executablePath = '/usr/bin/google-chrome';
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || null;
 
-    const browser = await puppeteer.launch({
+    const launchOptions = {
         headless: "new",
         defaultViewport: null,
-        executablePath: executablePath,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -61,7 +60,13 @@ async function autoLoginAndGetHeaders() {
             '--disable-accelerated-2d-canvas',
             '--disable-gpu'
         ]
-    });
+    };
+
+    if (executablePath) {
+        launchOptions.executablePath = executablePath;
+    }
+
+    const browser = await puppeteer.launch(launchOptions);
 
     try {
         const page = await browser.newPage();
@@ -138,7 +143,9 @@ async function autoLoginAndGetHeaders() {
 
     } catch (error) {
         console.log(`❌ Lỗi Auto Login: ${error.message}`);
-        await browser.close();
+        if (typeof browser !== 'undefined' && browser) {
+            await browser.close().catch(() => { });
+        }
         throw error;
     }
 }
