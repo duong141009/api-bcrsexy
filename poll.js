@@ -27,23 +27,13 @@ let CURRENT_HEADERS = {
     "Referer": "https://toolbcr88.com/ae/lobby"
 };
 
-let TABLE_DATA = {}; // In-memory storage: { "B01": { cau: "", results: "..." } }
+let TABLE_DATA = {}; // In-memory storage
 
 const httpsAgent = new https.Agent({
     keepAlive: true,
     keepAliveMsecs: 1000,
     timeout: 30000
 });
-
-// ================= DANH SÁCH BÀN ======================
-const tableNameMap = {
-    "1": "B01", "2": "B02", "3": "B03", "4": "B04", "5": "B05",
-    "6": "B06", "7": "B07", "8": "B08", "9": "B09", "10": "B10",
-    "C01": "C01", "C02": "C02", "C03": "C03", "C04": "C04",
-    "C05": "C05", "C06": "C06", "C07": "C07", "C08": "C08",
-    "C09": "C09", "C10": "C10", "C11": "C11", "C12": "C12",
-    "C13": "C13", "C14": "C14", "C15": "C15", "C16": "C16"
-};
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -141,17 +131,14 @@ async function autoLoginAndGetHeaders() {
 async function fetchWithRetry(url, options, retries = 3) {
     try {
         options.headers = CURRENT_HEADERS;
-        // Thêm redirect: 'manual' để tránh fetch tự động theo link redirect tới trang login
         const res = await fetch(url, { ...options, agent: httpsAgent, redirect: 'manual' });
 
-        // Nhận diện mã lỗi liên quan đến xác thực hoặc redirect
         if (res.status === 401 || res.status === 419 || res.status === 301 || res.status === 302) {
             console.log(`\n⚠️ Token hết hạn hoặc bị chuyển hướng (${res.status}). Đang tự động Login lại...`);
             await autoLoginAndGetHeaders();
             return fetchWithRetry(url, options, retries);
         }
 
-        // Bắt trường hợp bị chuyển hướng nhưng status vẫn 200
         if (res.url && res.url.includes('/login')) {
             console.log("\n⚠️ Bị chuyển hướng tới trang đăng nhập. Đang tự động Login lại...");
             await autoLoginAndGetHeaders();
@@ -160,7 +147,6 @@ async function fetchWithRetry(url, options, retries = 3) {
 
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         
-        // Đảm bảo dữ liệu trả về không phải là HTML của trang báo lỗi/login
         const contentType = res.headers.get("content-type");
         if (contentType && contentType.includes("text/html")) {
             console.log("\n⚠️ API trả về HTML thay vì JSON (có thể session bị lỗi). Đang tự động Login lại...");
@@ -204,12 +190,16 @@ async function pollLoop() {
             if (json?.data) {
                 let updated = 0;
                 for (const table of json.data) {
-                    const displayName = tableNameMap[table.table_name];
+                    let displayName = String(table.table_name).trim().toUpperCase();
+                    
+                    if (/^\d+$/.test(displayName)) {
+                        displayName = 'B' + displayName.padStart(2, '0');
+                    }
+
                     if (displayName) {
                         const newResults = table.result || "";
                         if (!TABLE_DATA[displayName] || TABLE_DATA[displayName].results !== newResults) {
 
-                            // Tính toán thông số cho JSON
                             let pCount = 0, tCount = 0, bCount = 0;
                             let maxStreak = 0, currentStreakCount = 0, currentStreakChar = "";
                             let longestStreakChar = "";
@@ -250,7 +240,7 @@ async function pollLoop() {
                             const vnTime = new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 
                             TABLE_DATA[displayName] = {
-                                cau: "",
+                                cau: table.goodRoad || "",
                                 results: newResults,
                                 time: vnTime,
                                 stats: {
@@ -282,9 +272,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Lấy danh sách ID bàn duy nhất để hiển thị placeholder
-const uniqueTableIds = [...new Set(Object.values(tableNameMap))].sort();
-
 // API: Lấy tất cả dữ liệu bàn
 app.get('/api/baccarat', (req, res) => {
     res.json(TABLE_DATA);
@@ -300,34 +287,56 @@ app.get('/api/baccarat/:tableName', (req, res) => {
     }
 });
 
-// Landing Page Dashboard
+// Landing Page Dashboard (GIAO DIỆN MỚI 2026)
 app.get('/', (req, res) => {
-    const tableListHtml = uniqueTableIds.map(id => {
-        const data = TABLE_DATA[id] || { results: "", stats: { p_count: 0, t_count: 0, b_count: 0, longest_streak: "0", current_streak: "0" } };
+    const currentTableIds = Object.keys(TABLE_DATA).sort((a, b) => {
+        const aIsC = a.startsWith('C');
+        const bIsC = b.startsWith('C');
+        
+        if (aIsC && !bIsC) return -1; 
+        if (!aIsC && bIsC) return 1;  
+        
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    const tableListHtml = currentTableIds.map(id => {
+        const data = TABLE_DATA[id];
         const results = data.results || "";
         const stats = data.stats || { p_count: 0, t_count: 0, b_count: 0, longest_streak: "0", current_streak: "0" };
+        const goodRoad = data.cau ? `<div class="good-road-badge"><i class="icon-star"></i> ${data.cau}</div>` : '';
 
+        // Hiển thị tối đa 26 hạt gần nhất cho đỡ chật
         const resultsHtml = results
-            ? results.slice(-20).split('').map(c => `<span class="c-${c}">${c}</span>`).join('')
-            : '<span class="loading">Đang chờ tín hiệu...</span>';
+            ? results.slice(-26).split('').map(c => `<span class="bead c-${c}">${c}</span>`).join('')
+            : '<span class="loading">Đang chờ tín hiệu vệ tinh...</span>';
 
         return `
             <a href="/api/baccarat/${id}" class="card-link" target="_blank">
                 <div class="table-card">
                     <div class="card-header">
-                        <h3>Table ${id}</h3>
-                        <span class="btn-api-small">API</span>
+                        <div class="table-title">
+                            <span class="table-icon">♠</span> TABLE ${id}
+                        </div>
+                        ${goodRoad}
                     </div>
                     <div class="stats-grid">
-                        <div class="stat-item"><span class="label">P:</span> <span class="val color-P">${stats.p_count}</span></div>
-                        <div class="stat-item"><span class="label">T:</span> <span class="val color-T">${stats.t_count}</span></div>
-                        <div class="stat-item"><span class="label">B:</span> <span class="val color-B">${stats.b_count}</span></div>
+                        <div class="stat-item"><span class="label">PLAYER</span> <span class="val color-P">${stats.p_count}</span></div>
+                        <div class="stat-item"><span class="label">TIE</span> <span class="val color-T">${stats.t_count}</span></div>
+                        <div class="stat-item"><span class="label">BANKER</span> <span class="val color-B">${stats.b_count}</span></div>
                     </div>
                     <div class="streak-info">
-                        <div>Dài nhất: <span class="val">${stats.longest_streak}</span></div>
-                        <div>Gần nhất: <span class="val">${stats.current_streak}</span></div>
+                        <div class="streak-box">
+                            <span class="s-label">Dài nhất</span>
+                            <span class="s-val">${stats.longest_streak}</span>
+                        </div>
+                        <div class="streak-box">
+                            <span class="s-label">Gần nhất</span>
+                            <span class="s-val">${stats.current_streak}</span>
+                        </div>
                     </div>
-                    <div class="results">${resultsHtml}</div>
+                    <div class="results-container">
+                        ${resultsHtml}
+                    </div>
                 </div>
             </a>
         `;
@@ -337,229 +346,153 @@ app.get('/', (req, res) => {
 
     res.send(`
         <!DOCTYPE html>
-        <html>
+        <html lang="vi">
         <head>
-            <title>AE-SEXY Baccarat API - Premium Dashboard</title>
+            <meta charset="UTF-8">
+            <title>AE-SEXY Premium Intelligence</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-                
+                :root {
+                    --bg-dark: #07090e;
+                    --card-bg: rgba(18, 22, 33, 0.75);
+                    --accent-p: #00f2fe;
+                    --accent-b: #ff0844;
+                    --accent-t: #00e676;
+                    --gold: #f6d365;
+                }
+
+                * { box-sizing: border-box; }
+
                 body { 
                     font-family: 'Inter', sans-serif; 
-                    background: #080810; 
-                    color: #fff; 
+                    background-color: var(--bg-dark);
+                    background-image: 
+                        radial-gradient(circle at 15% 50%, rgba(0, 242, 254, 0.08), transparent 25%),
+                        radial-gradient(circle at 85% 30%, rgba(255, 8, 68, 0.08), transparent 25%);
+                    color: #e2e8f0; 
                     margin: 0; 
-                    padding: 20px; 
-                    background-image: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #080810 100%);
+                    padding: 20px 15px; 
                     min-height: 100vh;
+                    background-attachment: fixed;
                 }
-                .container { max-width: 1200px; margin: 0 auto; }
+                
+                .container { max-width: 1300px; margin: 0 auto; }
                 
                 header { 
                     text-align: center;
                     margin-bottom: 40px; 
                     padding: 40px 20px; 
-                    background: rgba(255, 255, 255, 0.03);
-                    backdrop-filter: blur(10px);
+                    background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
                     border-radius: 24px; 
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.5); 
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    position: relative;
+                    overflow: hidden;
                 }
                 
                 h1 { 
+                    font-family: 'Montserrat', sans-serif;
                     margin: 0; 
-                    font-size: 3em; 
-                    font-weight: 800;
+                    font-size: 3.2em; 
+                    font-weight: 900;
+                    text-transform: uppercase;
                     letter-spacing: -1px;
-                    background: linear-gradient(to right, #6e45e2, #88d3ce);
+                    background: linear-gradient(to right, #fff, #a5b4fc);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
+                    text-shadow: 0 0 30px rgba(165, 180, 252, 0.3);
                 }
                 
                 .status-badge { 
-                    display: inline-block; 
-                    padding: 6px 16px; 
-                    background: rgba(40, 167, 69, 0.15); 
-                    color: #28a745;
-                    border: 1px solid #28a745;
+                    display: inline-flex; 
+                    align-items: center;
+                    gap: 8px;
+                    padding: 8px 20px; 
+                    background: rgba(0, 230, 118, 0.1); 
+                    color: #00e676;
+                    border: 1px solid rgba(0, 230, 118, 0.3);
                     border-radius: 30px; 
                     font-size: 0.85em; 
-                    margin-top: 15px; 
-                    font-weight: 600;
-                    animation: pulse 2s infinite;
+                    margin-top: 20px; 
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                }
+
+                .pulse-dot {
+                    width: 8px;
+                    height: 8px;
+                    background-color: #00e676;
+                    border-radius: 50%;
+                    box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7);
+                    animation: pulse-dot 1.5s infinite;
                 }
                 
-                @keyframes pulse {
-                    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
-                    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+                @keyframes pulse-dot {
+                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7); }
+                    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(0, 230, 118, 0); }
+                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
                 }
 
-                .main-controls {
-                    display: flex;
-                    justify-content: center;
-                    gap: 15px;
-                    margin-bottom: 30px;
-                }
+                .main-controls { display: flex; justify-content: center; gap: 15px; margin-bottom: 40px; }
 
                 .btn-primary {
-                    background: linear-gradient(135deg, #6e45e2 0%, #4a32b1 100%);
-                    color: white;
-                    padding: 12px 28px;
+                    background: rgba(255,255,255,0.05);
+                    color: #fff;
+                    padding: 12px 30px;
                     border-radius: 12px;
                     text-decoration: none;
                     font-weight: 600;
                     transition: all 0.3s ease;
-                    border: none;
-                    box-shadow: 0 4px 15px rgba(110, 69, 226, 0.3);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    backdrop-filter: blur(5px);
                 }
-                
-                .btn-primary:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(110, 69, 226, 0.5);
-                }
+                .btn-primary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
 
+                /* === GRID & CARDS === */
                 .grid { 
                     display: grid; 
-                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-                    gap: 20px; 
+                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+                    gap: 24px; 
                 }
                 
-                .card-link {
-                    text-decoration: none;
-                    color: inherit;
-                    display: block;
-                    transition: transform 0.3s ease;
-                }
-
-                .card-link:hover .table-card {
-                    transform: scale(1.02);
-                    border-color: rgba(110, 69, 226, 0.4);
-                    background: rgba(40, 40, 60, 0.8);
-                }
+                .card-link { text-decoration: none; color: inherit; display: block; outline: none; }
 
                 .table-card { 
-                    background: rgba(30, 30, 47, 0.6); 
-                    padding: 20px; 
+                    background: var(--card-bg); 
+                    backdrop-filter: blur(12px);
+                    -webkit-backdrop-filter: blur(12px);
+                    padding: 24px; 
                     border-radius: 20px; 
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.06);
                     height: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
                 }
                 
+                .card-link:hover .table-card {
+                    transform: translateY(-8px);
+                    border-color: rgba(255, 255, 255, 0.2);
+                    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.8);
+                }
+
                 .card-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 15px;
+                    margin-bottom: 20px;
                 }
                 
-                .card-header h3 { margin: 0; font-size: 1.2em; color: #88d3ce; }
-
-                .stats-grid {
+                .table-title { 
+                    font-family: 'Montserrat', sans-serif;
+                    font-size: 1.3em; 
+                    font-weight: 800; 
+                    color: #fff;
                     display: flex;
-                    justify-content: space-around;
-                    background: rgba(0,0,0,0.2);
-                    padding: 8px;
-                    border-radius: 10px;
-                    margin-bottom: 10px;
-                    font-size: 0.9em;
+                    align-items: center;
+                    gap: 8px;
                 }
-                .label { opacity: 0.6; }
-                .val { font-weight: 800; }
-                
-                .streak-info {
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 0.8em;
-                    margin-bottom: 12px;
-                    opacity: 0.8;
-                }
+                .table-icon { color: #64748b; font-size: 1.2em; }
 
-                .color-P { color: #2196f3; }
-                .color-T { color: #4caf50; }
-                .color-B { color: #f44336; }
-
-                .btn-api-small {
-                    background: rgba(255, 255, 255, 0.05);
-                    color: #aaa;
-                    padding: 4px 10px;
-                    border-radius: 6px;
-                    font-size: 0.75em;
-                    text-decoration: none;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                }
-
-                .results { 
-                    font-family: 'Monaco', 'Consolas', monospace; 
-                    font-size: 1.2em; 
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 3px;
-                    min-height: 40px;
-                }
-                
-                .loading { font-size: 0.6em; color: #555; font-style: italic; }
-
-                .c-B { background: #f44336; color: white; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.55em; font-weight: 800; }
-                .c-P { background: #2196f3; color: white; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.55em; font-weight: 800; }
-                .c-T { background: #4caf50; color: white; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.55em; font-weight: 800; }
-                
-                footer { 
-                    margin-top: 60px; 
-                    padding: 40px 20px;
-                    text-align: center;
-                    background: rgba(255, 255, 255, 0.02);
-                    border-radius: 20px;
-                    border-top: 1px solid rgba(255, 255, 255, 0.05);
-                }
-                .footer-id { font-size: 1.5em; font-weight: 800; color: #88d3ce; margin-bottom: 5px; }
-                .footer-time { font-family: monospace; opacity: 0.6; }
-                
-                /* Responsive */
-                @media (max-width: 600px) {
-                    h1 { font-size: 2em; }
-                    .grid { grid-template-columns: 1fr; }
-                }
-            </style>
-            <meta http-equiv="refresh" content="30">
-        </head>
-        <body>
-            <div class="container">
-                <header>
-                    <h1>AE-SEXY Baccarat API</h1>
-                    <div class="status-badge">SYSTEM OPERATIONAL</div>
-                </header>
-                
-                <div class="main-controls">
-                    <a href="/api/baccarat" class="btn-primary" target="_blank">View All API Data</a>
-                </div>
-
-                <div class="grid">
-                    ${tableListHtml}
-                </div>
-                
-                <footer>
-                    <div class="footer-id">ID: Dwong1410</div>
-                    <div class="footer-time">Giờ Việt Nam: ${vnTime}</div>
-                    <div style="margin-top: 15px; opacity: 0.3; font-size: 0.8em;">AE-SEXY Real-time Intelligence Engine &copy; 2026</div>
-                </footer>
-            </div>
-        </body>
-        </html>
-    `);
-});
-
-app.listen(PORT, () => {
-    console.log(`[🚀] Server AE-SEXY đang chạy tại port ${PORT}`);
-    pollLoop();
-
-    // Anti-shutdown (Self-ping)
-    const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
-    if (RENDER_EXTERNAL_URL) {
-        setInterval(() => {
-            axios.get(RENDER_EXTERNAL_URL)
-                .then(res => console.log(`[📡] Self-ping status: ${res.status}`))
-                .catch(err => console.error('[⚠️] Self-ping error:', err.message));
-        }, 5 * 60 * 1000); // 5 minutes
-    }
-});
+                .good-ro
