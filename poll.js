@@ -7,12 +7,12 @@ const axios = require('axios');
 
 // ================= CẤU HÌNH (SỬA Ở ĐÂY) =================
 const LOGIN_CONFIG = {
-    url: "https://toolbcrf1.com/",
+    url: "https://toolbcr88.com/",
     username: "duong1410", // <--- ĐIỀN VÀO ĐÂY
     password: "duong1410"       // <--- ĐIỀN VÀO ĐÂY
 };
 
-const BCR_URL ="https://tool.toolbcr79.com/predict/get-all-table"
+const BCR_URL ="https://toolbcr88.com/baccarat/getnewresult"
 const PORT = process.env.PORT || 5000;
 
 // ================= GLOBAL VARIABLES ===================
@@ -23,8 +23,8 @@ let CURRENT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Cookie": "",
     "X-CSRF-TOKEN": "",
-    "Origin": "https://toolbcrf1.com",
-    "Referer": "https://toolbcrf1.com"
+    "Origin": "https://toolbcr88.com",
+    "Referer": "https://toolbcr88.com/ae/lobby"
 };
 
 let TABLE_DATA = {}; // In-memory storage: { "B01": { cau: "", results: "..." } }
