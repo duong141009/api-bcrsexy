@@ -15,10 +15,6 @@ const LOGIN_CONFIG = {
 const BCR_URL = "https://toolbcr88.com/baccarat/getnewresult";
 const PORT = process.env.PORT || 5000;
 
-// Nếu true: các bàn chỉ có số trong JSON ("6", "15") sẽ hiển thị thành "B06", "B15"
-// Nếu false: giữ nguyên tên gốc từ JSON ("6", "15")
-const ADD_B_PREFIX_FOR_NUMBER_TABLES = true;
-
 // ================= GLOBAL VARIABLES ===================
 let CURRENT_HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -42,37 +38,35 @@ const httpsAgent = new https.Agent({
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ================= HÀM CHUẨN HÓA & SẮP XẾP TÊN BÀN =================
+// Vì API đã có sẵn tên đúng, chỉ cần viết hoa để đảm bảo đồng bộ
 function formatTableName(rawName) {
     if (!rawName) return "";
-    const name = String(rawName).trim().toUpperCase();
-    if (/^\d+$/.test(name)) {
-        return ADD_B_PREFIX_FOR_NUMBER_TABLES ? `B${name.padStart(2, '0')}` : name;
-    }
-    const match = name.match(/^([A-Z]+)(\d+)$/);
-    if (match) {
-        return `${match[1]}${match[2].padStart(2, '0')}`;
-    }
-    return name;
+    return String(rawName).trim().toUpperCase();
 }
 
+// Hàm lấy thông tin để sắp xếp
 function getSortMeta(tableName) {
     const name = String(tableName).trim().toUpperCase();
-    const match = name.match(/^([A-Z]*)(\d+)$/);
+    // Tách phần chữ cái và phần số (VD: C1 -> prefix: C, num: 1)
+    const match = name.match(/^([A-Z]+)(\d+)/);
     if (match) {
         const prefix = match[1];
         const num = parseInt(match[2], 10);
-        // Ưu tiên bàn C đứng trước (group 0), tiếp theo là bàn B / bàn số (group 1), còn lại (group 2)
-        let group = 2;
-        if (prefix === 'C') group = 0;
-        else if (prefix === 'B' || prefix === '') group = 1;
+        
+        let group = 2; // Nhóm mặc định cho các bàn khác
+        if (prefix === 'C') group = 0;      // Bàn C lên đầu
+        else if (prefix === 'B') group = 1; // Bàn B xếp thứ 2
+        
         return { group, num, name };
     }
     return { group: 3, num: 0, name };
 }
 
+// Sắp xếp ưu tiên: Nhóm (C -> B) -> Số (1 -> 2 -> 10) -> Tên bảng chữ cái nếu trùng
 function compareTableNames(a, b) {
     const metaA = getSortMeta(a);
     const metaB = getSortMeta(b);
+    
     if (metaA.group !== metaB.group) return metaA.group - metaB.group;
     if (metaA.num !== metaB.num) return metaA.num - metaB.num;
     return metaA.name.localeCompare(metaB.name);
@@ -337,15 +331,12 @@ app.get('/api/baccarat', (req, res) => {
     res.json(TABLE_DATA);
 });
 
-// API: Lấy dữ liệu 1 bàn cụ thể (hỗ trợ cả tên chuẩn hóa như B06, C01 lẫn tên gốc 6, C1)
+// API: Lấy dữ liệu 1 bàn cụ thể
 app.get('/api/baccarat/:tableName', (req, res) => {
-    const rawParam = req.params.tableName.toUpperCase();
-    const formattedParam = formatTableName(rawParam);
+    const param = req.params.tableName.trim().toUpperCase();
 
-    if (TABLE_DATA[formattedParam]) {
-        res.json(TABLE_DATA[formattedParam]);
-    } else if (TABLE_DATA[rawParam]) {
-        res.json(TABLE_DATA[rawParam]);
+    if (TABLE_DATA[param]) {
+        res.json(TABLE_DATA[param]);
     } else {
         res.status(404).json({ cau: "", results: "" });
     }
@@ -534,4 +525,17 @@ app.get('/', (req, res) => {
 
                 .color-P { color: #2196f3; }
                 .color-T { color: #4caf50; }
-             
+                .color-B { color: #f44336; }
+
+                .btn-api-small {
+                    background: rgba(255, 255, 255, 0.05);
+                    color: #aaa;
+                    padding: 4px 10px;
+                    border-radius: 6px;
+                    font-size: 0.75em;
+                    text-decoration: none;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                .results { 
+      
