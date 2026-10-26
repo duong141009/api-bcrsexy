@@ -37,29 +37,6 @@ const httpsAgent = new https.Agent({
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// ================= HÀM SẮP XẾP BÀN =================
-// Sắp xếp: bàn số (7,8,9,11...) từ nhỏ đến lớn, rồi bàn C (C01,C02...) từ nhỏ đến lớn
-function sortTableNames(names) {
-    return names.sort((a, b) => {
-        const aIsC = a.startsWith('C');
-        const bIsC = b.startsWith('C');
-
-        // Bàn số luôn đứng trước bàn C
-        if (!aIsC && bIsC) return -1;
-        if (aIsC && !bIsC) return 1;
-
-        // Cùng loại: so sánh theo số
-        if (!aIsC && !bIsC) {
-            return parseInt(a) - parseInt(b);
-        }
-
-        // Cùng bàn C: so sánh theo số sau C
-        const aNum = parseInt(a.replace('C', ''));
-        const bNum = parseInt(b.replace('C', ''));
-        return aNum - bNum;
-    });
-}
-
 // ================= AUTO LOGIN =================
 async function autoLoginAndGetHeaders() {
     console.log("\n🤖 Đang khởi động Chrome...");
@@ -212,15 +189,13 @@ async function pollLoop() {
 
             if (json?.data) {
                 let updated = 0;
-                // Xóa dữ liệu cũ, chỉ giữ bàn có trong API mới nhất
                 const newTableData = {};
 
                 for (const table of json.data) {
-                    const displayName = table.table_name; // Lấy trực tiếp từ API
+                    const displayName = table.table_name;
                     const newResults = table.result || "";
                     const goodRoad = table.goodRoad || "";
 
-                    // Tính toán thông số
                     let pCount = 0, tCount = 0, bCount = 0;
                     let maxStreak = 0, currentStreakCount = 0, currentStreakChar = "";
                     let longestStreakChar = "";
@@ -313,65 +288,8 @@ app.get('/api/baccarat/:tableName', (req, res) => {
     }
 });
 
-// Landing Page Dashboard
+// Landing Page Dashboard — trang tĩnh, JS client tự fetch & cập nhật DOM
 app.get('/', (req, res) => {
-    const sortedNames = sortTableNames(Object.keys(TABLE_DATA));
-    const vnTime = new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
-    const totalTables = sortedNames.length;
-
-    const tableListHtml = sortedNames.map((id, index) => {
-        const data = TABLE_DATA[id];
-        const results = data.results || "";
-        const stats = data.stats || { p_count: 0, t_count: 0, b_count: 0, total: 0, longest_streak: "0", current_streak: "0" };
-        const goodRoad = data.cau || "";
-
-        const resultsHtml = results
-            ? results.slice(-30).split('').map(c => `<span class="dot c-${c}">${c}</span>`).join('')
-            : '<span class="loading">Đang chờ...</span>';
-
-        const goodRoadHtml = goodRoad
-            ? `<div class="good-road"><span class="road-icon">🔥</span>${goodRoad}</div>`
-            : `<div class="good-road empty"><span class="road-icon">—</span>Chưa có cầu</div>`;
-
-        const isC = id.startsWith('C');
-        const typeClass = isC ? 'type-c' : 'type-num';
-        const typeLabel = isC ? 'CLASSIC' : 'SPEED';
-
-        return `
-            <a href="/api/baccarat/${id}" class="card-link" target="_blank" style="animation-delay: ${index * 0.03}s">
-                <div class="table-card ${typeClass}">
-                    <div class="card-header">
-                        <div class="header-left">
-                            <span class="table-type-badge ${typeClass}">${typeLabel}</span>
-                            <h3>${id}</h3>
-                        </div>
-                        <div class="header-right">
-                            <span class="total-hands">${stats.total} ván</span>
-                        </div>
-                    </div>
-                    ${goodRoadHtml}
-                    <div class="stats-row">
-                        <div class="stat-chip stat-p"><span class="stat-label">P</span><span class="stat-val">${stats.p_count}</span></div>
-                        <div class="stat-chip stat-b"><span class="stat-label">B</span><span class="stat-val">${stats.b_count}</span></div>
-                        <div class="stat-chip stat-t"><span class="stat-label">T</span><span class="stat-val">${stats.t_count}</span></div>
-                    </div>
-                    <div class="streak-row">
-                        <div class="streak-item">
-                            <span class="streak-label">Chuỗi dài nhất</span>
-                            <span class="streak-val">${stats.longest_streak}</span>
-                        </div>
-                        <div class="streak-divider"></div>
-                        <div class="streak-item">
-                            <span class="streak-label">Chuỗi hiện tại</span>
-                            <span class="streak-val">${stats.current_streak}</span>
-                        </div>
-                    </div>
-                    <div class="results-row">${resultsHtml}</div>
-                </div>
-            </a>
-        `;
-    }).join('');
-
     res.send(`
         <!DOCTYPE html>
         <html lang="vi">
@@ -411,7 +329,6 @@ app.get('/', (req, res) => {
                     overflow-x: hidden;
                 }
 
-                /* Animated background */
                 body::before {
                     content: '';
                     position: fixed;
@@ -504,11 +421,6 @@ app.get('/', (req, res) => {
                     50% { opacity: 0.3; }
                 }
 
-                @keyframes fadeInUp {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-
                 /* ========= SECTION DIVIDER ========= */
                 .section-title {
                     display: flex;
@@ -551,7 +463,6 @@ app.get('/', (req, res) => {
                     text-decoration: none;
                     color: inherit;
                     display: block;
-                    animation: fadeInUp 0.5s ease both;
                 }
 
                 .table-card {
@@ -574,7 +485,7 @@ app.get('/', (req, res) => {
                     transition: opacity 0.35s;
                 }
 
-                .table-card.type-num::before { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+                .table-card.type-b::before { background: linear-gradient(90deg, #f59e0b, #ef4444); }
                 .table-card.type-c::before { background: linear-gradient(90deg, #8b5cf6, #06b6d4); }
 
                 .card-link:hover .table-card {
@@ -611,7 +522,7 @@ app.get('/', (req, res) => {
                     text-transform: uppercase;
                 }
 
-                .table-type-badge.type-num {
+                .table-type-badge.type-b {
                     background: rgba(245, 158, 11, 0.15);
                     color: #f59e0b;
                     border: 1px solid rgba(245, 158, 11, 0.25);
@@ -767,7 +678,7 @@ app.get('/', (req, res) => {
                 .c-P { background: var(--color-p); box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3); }
                 .c-T { background: var(--color-t); box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3); }
 
-                .loading {
+                .loading-text {
                     font-size: 0.75rem;
                     color: var(--text-muted);
                     font-style: italic;
@@ -807,6 +718,45 @@ app.get('/', (req, res) => {
                     opacity: 0.5;
                 }
 
+                /* ========= MAIN CONTROLS ========= */
+                .main-controls {
+                    display: flex;
+                    justify-content: center;
+                    gap: 12px;
+                    margin-bottom: 24px;
+                }
+
+                .btn-api {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 12px 28px;
+                    border-radius: 14px;
+                    background: var(--accent-gradient);
+                    color: white;
+                    text-decoration: none;
+                    font-weight: 700;
+                    font-size: 0.9rem;
+                    box-shadow: 0 4px 20px rgba(139,92,246,0.3);
+                    transition: all 0.3s ease;
+                }
+
+                .btn-api:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 24px rgba(139,92,246,0.5);
+                }
+
+                /* ========= COUNTDOWN BAR ========= */
+                .countdown-bar {
+                    position: fixed;
+                    top: 0; left: 0;
+                    height: 3px;
+                    background: var(--accent-gradient);
+                    z-index: 9999;
+                    transition: width 0.3s linear;
+                    width: 100%;
+                }
+
                 /* ========= RESPONSIVE ========= */
                 @media (max-width: 768px) {
                     .container { padding: 12px; }
@@ -822,25 +772,10 @@ app.get('/', (req, res) => {
                 @media (max-width: 480px) {
                     .grid { grid-template-columns: 1fr; }
                 }
-
-                /* Auto refresh indicator */
-                .refresh-bar {
-                    position: fixed;
-                    top: 0; left: 0;
-                    height: 3px;
-                    background: var(--accent-gradient);
-                    z-index: 9999;
-                    animation: refreshProgress 15s linear infinite;
-                }
-
-                @keyframes refreshProgress {
-                    from { width: 100%; }
-                    to { width: 0%; }
-                }
             </style>
         </head>
         <body>
-            <div class="refresh-bar"></div>
+            <div class="countdown-bar" id="countdownBar"></div>
             <div class="container">
                 <div class="header-section">
                     <div class="logo-text">AE-SEXY BACCARAT</div>
@@ -852,145 +787,196 @@ app.get('/', (req, res) => {
                         </div>
                         <div class="header-stat">
                             <div class="dot-indicator dot-purple"></div>
-                            <span>${totalTables} bàn đang mở</span>
+                            <span id="totalTablesText">0 bàn đang mở</span>
                         </div>
                         <div class="header-stat">
-                            <span>🕐 ${vnTime}</span>
+                            <span id="liveClockHeader">🕐 --:--:--</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="main-controls" style="display:flex;justify-content:center;gap:12px;margin-bottom:24px;">
-                    <a href="/api/baccarat" target="_blank" style="
-                        display:inline-flex;align-items:center;gap:8px;
-                        padding:12px 28px;border-radius:14px;
-                        background:var(--accent-gradient);color:white;
-                        text-decoration:none;font-weight:700;font-size:0.9rem;
-                        box-shadow:0 4px 20px rgba(139,92,246,0.3);
-                        transition:all 0.3s ease;
-                    ">📡 Xem API JSON</a>
+                <div class="main-controls">
+                    <a href="/api/baccarat" target="_blank" class="btn-api">📡 Xem API JSON</a>
                 </div>
 
-                ${sortedNames.filter(n => !n.startsWith('C')).length > 0 ? `
-                <div class="section-title">
-                    <h2>⚡ Bàn Speed</h2>
-                    <div class="line"></div>
-                    <span class="count-badge">${sortedNames.filter(n => !n.startsWith('C')).length} bàn</span>
-                </div>
-                <div class="grid">
-                    ${sortedNames.filter(n => !n.startsWith('C')).map((id, index) => {
-                        const data = TABLE_DATA[id];
-                        const results = data.results || "";
-                        const stats = data.stats;
-                        const goodRoad = data.cau || "";
-                        const resultsHtml = results
-                            ? results.slice(-30).split('').map(c => `<span class="dot c-${c}">${c}</span>`).join('')
-                            : '<span class="loading">Đang chờ...</span>';
-                        const goodRoadHtml = goodRoad
-                            ? `<div class="good-road"><span class="road-icon">🔥</span>${goodRoad}</div>`
-                            : `<div class="good-road empty"><span class="road-icon">—</span>Chưa có cầu</div>`;
-                        return `
-                            <a href="/api/baccarat/${id}" class="card-link" target="_blank" style="animation-delay: ${index * 0.03}s">
-                                <div class="table-card type-num">
-                                    <div class="card-header">
-                                        <div class="header-left">
-                                            <span class="table-type-badge type-num">SPEED</span>
-                                            <h3>${id}</h3>
-                                        </div>
-                                        <div class="header-right">
-                                            <span class="total-hands">${stats.total} ván</span>
-                                        </div>
-                                    </div>
-                                    ${goodRoadHtml}
-                                    <div class="stats-row">
-                                        <div class="stat-chip stat-p"><span class="stat-label">P</span><span class="stat-val">${stats.p_count}</span></div>
-                                        <div class="stat-chip stat-b"><span class="stat-label">B</span><span class="stat-val">${stats.b_count}</span></div>
-                                        <div class="stat-chip stat-t"><span class="stat-label">T</span><span class="stat-val">${stats.t_count}</span></div>
-                                    </div>
-                                    <div class="streak-row">
-                                        <div class="streak-item">
-                                            <span class="streak-label">Chuỗi dài nhất</span>
-                                            <span class="streak-val">${stats.longest_streak}</span>
-                                        </div>
-                                        <div class="streak-divider"></div>
-                                        <div class="streak-item">
-                                            <span class="streak-label">Chuỗi hiện tại</span>
-                                            <span class="streak-val">${stats.current_streak}</span>
-                                        </div>
-                                    </div>
-                                    <div class="results-row">${resultsHtml}</div>
-                                </div>
-                            </a>
-                        `;
-                    }).join('')}
-                </div>
-                ` : ''}
+                <!-- Nội dung bàn B (chỉ có số) -->
+                <div id="sectionB"></div>
 
-                ${sortedNames.filter(n => n.startsWith('C')).length > 0 ? `
-                <div class="section-title">
-                    <h2>🎰 Bàn Classic</h2>
-                    <div class="line"></div>
-                    <span class="count-badge">${sortedNames.filter(n => n.startsWith('C')).length} bàn</span>
-                </div>
-                <div class="grid">
-                    ${sortedNames.filter(n => n.startsWith('C')).map((id, index) => {
-                        const data = TABLE_DATA[id];
-                        const results = data.results || "";
-                        const stats = data.stats;
-                        const goodRoad = data.cau || "";
-                        const resultsHtml = results
-                            ? results.slice(-30).split('').map(c => `<span class="dot c-${c}">${c}</span>`).join('')
-                            : '<span class="loading">Đang chờ...</span>';
-                        const goodRoadHtml = goodRoad
-                            ? `<div class="good-road"><span class="road-icon">🔥</span>${goodRoad}</div>`
-                            : `<div class="good-road empty"><span class="road-icon">—</span>Chưa có cầu</div>`;
-                        return `
-                            <a href="/api/baccarat/${id}" class="card-link" target="_blank" style="animation-delay: ${index * 0.03}s">
-                                <div class="table-card type-c">
-                                    <div class="card-header">
-                                        <div class="header-left">
-                                            <span class="table-type-badge type-c">CLASSIC</span>
-                                            <h3>${id}</h3>
-                                        </div>
-                                        <div class="header-right">
-                                            <span class="total-hands">${stats.total} ván</span>
-                                        </div>
-                                    </div>
-                                    ${goodRoadHtml}
-                                    <div class="stats-row">
-                                        <div class="stat-chip stat-p"><span class="stat-label">P</span><span class="stat-val">${stats.p_count}</span></div>
-                                        <div class="stat-chip stat-b"><span class="stat-label">B</span><span class="stat-val">${stats.b_count}</span></div>
-                                        <div class="stat-chip stat-t"><span class="stat-label">T</span><span class="stat-val">${stats.t_count}</span></div>
-                                    </div>
-                                    <div class="streak-row">
-                                        <div class="streak-item">
-                                            <span class="streak-label">Chuỗi dài nhất</span>
-                                            <span class="streak-val">${stats.longest_streak}</span>
-                                        </div>
-                                        <div class="streak-divider"></div>
-                                        <div class="streak-item">
-                                            <span class="streak-label">Chuỗi hiện tại</span>
-                                            <span class="streak-val">${stats.current_streak}</span>
-                                        </div>
-                                    </div>
-                                    <div class="results-row">${resultsHtml}</div>
-                                </div>
-                            </a>
-                        `;
-                    }).join('')}
-                </div>
-                ` : ''}
+                <!-- Nội dung bàn C -->
+                <div id="sectionC"></div>
 
                 <footer>
                     <div class="footer-brand">Dwong1410</div>
-                    <div class="footer-time">Giờ Việt Nam: ${vnTime}</div>
-                    <div class="footer-copy">AE-SEXY Real-time Intelligence Engine &copy; 2026 — Auto Refresh 15s</div>
+                    <div class="footer-time" id="footerClock">Giờ Việt Nam: --:--:--</div>
+                    <div class="footer-copy">AE-SEXY Real-time Intelligence Engine &copy; 2026 — Tự động cập nhật mỗi 10s</div>
                 </footer>
             </div>
 
             <script>
-                // Auto refresh mượt mà bằng fetch thay vì reload toàn trang
-                setTimeout(() => { location.reload(); }, 15000);
+                // ============ ĐỒNG HỒ REALTIME ============
+                function updateClock() {
+                    const now = new Date();
+                    const vnTime = now.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+                    document.getElementById('liveClockHeader').textContent = '🕐 ' + vnTime;
+                    document.getElementById('footerClock').textContent = 'Giờ Việt Nam: ' + vnTime;
+                }
+                updateClock();
+                setInterval(updateClock, 1000);
+
+                // ============ SẮP XẾP BÀN ============
+                // Bàn số (B) trước, rồi bàn C. Trong mỗi nhóm sắp nhỏ đến lớn.
+                function sortTableNames(names) {
+                    return names.sort(function(a, b) {
+                        var aIsC = a.startsWith('C');
+                        var bIsC = b.startsWith('C');
+                        if (!aIsC && bIsC) return -1;
+                        if (aIsC && !bIsC) return 1;
+                        if (!aIsC && !bIsC) return parseInt(a) - parseInt(b);
+                        var aNum = parseInt(a.replace(/\\D/g, ''));
+                        var bNum = parseInt(b.replace(/\\D/g, ''));
+                        return aNum - bNum;
+                    });
+                }
+
+                // ============ TẠO HTML CHO 1 CARD ============
+                function buildCardHtml(id, data) {
+                    var results = data.results || "";
+                    var stats = data.stats || { p_count:0, t_count:0, b_count:0, total:0, longest_streak:"0", current_streak:"0" };
+                    var goodRoad = data.cau || "";
+                    var isC = id.startsWith('C');
+                    var typeClass = isC ? 'type-c' : 'type-b';
+                    var typeLabel = isC ? 'CLASSIC' : 'BÀN B';
+
+                    var dotsHtml = "";
+                    if (results) {
+                        var last30 = results.slice(-30);
+                        for (var i = 0; i < last30.length; i++) {
+                            var c = last30[i];
+                            dotsHtml += '<span class="dot c-' + c + '">' + c + '</span>';
+                        }
+                    } else {
+                        dotsHtml = '<span class="loading-text">Đang chờ...</span>';
+                    }
+
+                    var roadHtml;
+                    if (goodRoad) {
+                        roadHtml = '<div class="good-road"><span class="road-icon">🔥</span>' + goodRoad + '</div>';
+                    } else {
+                        roadHtml = '<div class="good-road empty"><span class="road-icon">—</span>Chưa có cầu</div>';
+                    }
+
+                    return '<a href="/api/baccarat/' + id + '" class="card-link" target="_blank">' +
+                        '<div class="table-card ' + typeClass + '">' +
+                            '<div class="card-header">' +
+                                '<div class="header-left">' +
+                                    '<span class="table-type-badge ' + typeClass + '">' + typeLabel + '</span>' +
+                                    '<h3>' + id + '</h3>' +
+                                '</div>' +
+                                '<div class="header-right">' +
+                                    '<span class="total-hands">' + stats.total + ' ván</span>' +
+                                '</div>' +
+                            '</div>' +
+                            roadHtml +
+                            '<div class="stats-row">' +
+                                '<div class="stat-chip stat-p"><span class="stat-label">P</span><span class="stat-val">' + stats.p_count + '</span></div>' +
+                                '<div class="stat-chip stat-b"><span class="stat-label">B</span><span class="stat-val">' + stats.b_count + '</span></div>' +
+                                '<div class="stat-chip stat-t"><span class="stat-label">T</span><span class="stat-val">' + stats.t_count + '</span></div>' +
+                            '</div>' +
+                            '<div class="streak-row">' +
+                                '<div class="streak-item">' +
+                                    '<span class="streak-label">Chuỗi dài nhất</span>' +
+                                    '<span class="streak-val">' + stats.longest_streak + '</span>' +
+                                '</div>' +
+                                '<div class="streak-divider"></div>' +
+                                '<div class="streak-item">' +
+                                    '<span class="streak-label">Chuỗi hiện tại</span>' +
+                                    '<span class="streak-val">' + stats.current_streak + '</span>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="results-row">' + dotsHtml + '</div>' +
+                        '</div>' +
+                    '</a>';
+                }
+
+                // ============ RENDER TOÀN BỘ DASHBOARD ============
+                function renderDashboard(tableData) {
+                    var allNames = Object.keys(tableData);
+                    var sorted = sortTableNames(allNames);
+
+                    var bNames = sorted.filter(function(n) { return !n.startsWith('C'); });
+                    var cNames = sorted.filter(function(n) { return n.startsWith('C'); });
+
+                    // Cập nhật tổng bàn
+                    document.getElementById('totalTablesText').textContent = sorted.length + ' bàn đang mở';
+
+                    // Section B
+                    var sectionBEl = document.getElementById('sectionB');
+                    if (bNames.length > 0) {
+                        var bHtml = '<div class="section-title">' +
+                            '<h2>🎲 Bàn B</h2>' +
+                            '<div class="line"></div>' +
+                            '<span class="count-badge">' + bNames.length + ' bàn</span>' +
+                        '</div><div class="grid">';
+                        for (var i = 0; i < bNames.length; i++) {
+                            bHtml += buildCardHtml(bNames[i], tableData[bNames[i]]);
+                        }
+                        bHtml += '</div>';
+                        sectionBEl.innerHTML = bHtml;
+                    } else {
+                        sectionBEl.innerHTML = '';
+                    }
+
+                    // Section C
+                    var sectionCEl = document.getElementById('sectionC');
+                    if (cNames.length > 0) {
+                        var cHtml = '<div class="section-title">' +
+                            '<h2>🎰 Bàn C</h2>' +
+                            '<div class="line"></div>' +
+                            '<span class="count-badge">' + cNames.length + ' bàn</span>' +
+                        '</div><div class="grid">';
+                        for (var j = 0; j < cNames.length; j++) {
+                            cHtml += buildCardHtml(cNames[j], tableData[cNames[j]]);
+                        }
+                        cHtml += '</div>';
+                        sectionCEl.innerHTML = cHtml;
+                    } else {
+                        sectionCEl.innerHTML = '';
+                    }
+                }
+
+                // ============ FETCH DỮ LIỆU & CẬP NHẬT KHÔNG NHÁY ============
+                var REFRESH_INTERVAL = 5; // giây
+                var countdown = REFRESH_INTERVAL;
+
+                function fetchData() {
+                    fetch('/api/baccarat')
+                        .then(function(res) { return res.json(); })
+                        .then(function(data) {
+                            if (data && Object.keys(data).length > 0) {
+                                renderDashboard(data);
+                            }
+                        })
+                        .catch(function(err) {
+                            console.error('Fetch error:', err);
+                        });
+                }
+
+                // Countdown bar
+                function tickCountdown() {
+                    countdown--;
+                    if (countdown <= 0) {
+                        countdown = REFRESH_INTERVAL;
+                        fetchData();
+                    }
+                    var pct = (countdown / REFRESH_INTERVAL) * 100;
+                    document.getElementById('countdownBar').style.width = pct + '%';
+                }
+
+                // Lần đầu fetch ngay
+                fetchData();
+
+                // Mỗi giây: tick countdown
+                setInterval(tickCountdown, 1000);
             </script>
         </body>
         </html>
