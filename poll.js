@@ -510,125 +510,193 @@ app.get('/', (req, res) => {
             font-weight: 800;
         }
 
-        /* Bead road area */
-        .bead-area {
-            padding: 8px;
-            min-height: 110px;
+        /* Road board container & 12x6 grid */
+        .road-container {
             position: relative;
             background: #fff;
+            width: 100%;
         }
 
-        .bead-grid {
+        .road-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            grid-auto-flow: column;
+            background: #ffffff;
+            border: 1.5px solid #94a3b8; /* Viền bao ngoài ô vuông rõ nét */
+            width: 100%;
+            aspect-ratio: 12 / 6;
+            box-sizing: border-box;
+        }
+
+        .road-cell {
+            border-right: 1px solid #b8c7d9; /* Đường kẻ phân chia ô vuông rõ nét */
+            border-bottom: 1px solid #b8c7d9;
             display: flex;
-            gap: 2px;
-            overflow-x: auto;
-            direction: rtl; /* mới nhất bên phải */
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-sizing: border-box;
         }
 
-        .bead-grid::-webkit-scrollbar { display: none; }
-
-        .bead-col {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            direction: ltr;
-            flex-shrink: 0;
+        /* Ẩn viền phải ở cột thứ 12 */
+        .road-cell:nth-child(n+67) {
+            border-right: none;
         }
 
-        .bead {
-            width: 16px;
-            height: 16px;
+        /* Ẩn viền dưới ở hàng thứ 6 */
+        .road-cell:nth-child(6n) {
+            border-bottom: none;
+        }
+
+        /* Vòng tròn rỗng ruột nằm gọn gàng bên trong ô vuông */
+        .bead-ring {
+            width: 72%;
+            height: 72%;
+            max-width: 16px;
+            max-height: 16px;
             border-radius: 50%;
             position: relative;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             flex-shrink: 0;
+            overflow: hidden; /* Cắt gọn gàng bên trong vòng tròn */
         }
 
-        .bead-empty {
-            width: 16px;
-            height: 16px;
-        }
-
-        /* B = đỏ rỗng ruột (chỉ viền) */
-        .bead-B {
+        /* Cái (B) = viền đỏ rỗng ruột */
+        .bead-ring.bead-B {
             background: transparent;
             border: 2px solid #dc2626;
         }
 
-        /* P = xanh dương rỗng ruột (chỉ viền) */
-        .bead-P {
+        /* Con (P) = viền xanh dương rỗng ruột */
+        .bead-ring.bead-P {
             background: transparent;
             border: 2px solid #2563eb;
         }
 
-        /* Gạch xéo xanh lá cho Hòa — đè lên bead trước đó */
-        .bead.has-tie::after {
+        /* 1 Hòa: 1 gạch chéo xanh lá nằm gọn bên trong vòng tròn */
+        .bead-ring.has-tie-single::after {
             content: '';
             position: absolute;
-            top: -1px;
-            left: -1px;
-            width: 18px;
-            height: 18px;
-            background: linear-gradient(
-                to top right,
-                transparent 42%,
-                #16a34a 42%,
-                #16a34a 58%,
-                transparent 58%
-            );
-            pointer-events: none;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: #16a34a;
+            transform: translate(-50%, -50%) rotate(-45deg);
             z-index: 2;
         }
 
-        /* Good Road overlay */
-        .good-road-overlay {
+        /* 2 Hòa trở lên: 2 gạch chéo song song */
+        .bead-ring.has-tie-multi::before {
+            content: '';
             position: absolute;
-            bottom: 6px;
-            right: 8px;
-            font-size: 0.85rem;
-            font-weight: 800;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 1.8px;
+            background: #16a34a;
+            transform: translate(-50%, -50%) rotate(-45deg) translateY(-3.5px);
+            z-index: 1;
+        }
+
+        .bead-ring.has-tie-multi::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 1.8px;
+            background: #16a34a;
+            transform: translate(-50%, -50%) rotate(-45deg) translateY(3.5px);
+            z-index: 1;
+        }
+
+        /* Số hiển thị ở giữa 2 gạch khi hòa >= 2 */
+        .bead-ring .tie-center-num {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 8px;
+            font-weight: 900;
+            color: #16a34a;
+            line-height: 1;
+            z-index: 3;
+            background: #ffffff;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        /* Good Road ribbon phong cách casino như ảnh */
+        .good-road-ribbon {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: linear-gradient(135deg, #b45309 0%, #f59e0b 50%, #92400e 100%);
+            color: #ffffff;
+            font-weight: 900;
             font-style: italic;
-            color: #d97706;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
-            pointer-events: none;
-            max-width: 60%;
-            text-align: right;
-            line-height: 1.2;
-        }
-
-        /* Bottom stats bar */
-        .card-bottom {
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 10px;
-            background: #f8f8f8;
-            border-top: 1px solid #e5e5e5;
-        }
-
-        .stat-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
+            font-size: 0.72rem;
             padding: 2px 8px;
             border-radius: 4px;
-            font-size: 0.65rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            letter-spacing: 0.5px;
+            pointer-events: none;
+            z-index: 10;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,215,0,0.4);
+        }
+
+        /* Bottom stats bar giống hình mẫu (màu hổ phách caramel) */
+        .card-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: linear-gradient(135deg, #a35010 0%, #cc701b 50%, #a35010 100%);
+            color: #ffffff;
+            border-top: 1px solid rgba(0,0,0,0.15);
+        }
+
+        .stat-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stat-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.75rem;
             font-weight: 800;
+        }
+
+        .stat-dot {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.58rem;
+            font-weight: 900;
             color: #fff;
         }
 
-        .stat-badge.sb-p { background: #2563eb; }
-        .stat-badge.sb-b { background: #dc2626; }
-        .stat-badge.sb-t { background: #16a34a; }
+        .stat-dot.dot-b { background: #dc2626; }
+        .stat-dot.dot-p { background: #2563eb; }
+        .stat-dot.dot-t { background: #16a34a; }
 
-        .stat-badge .sb-label { opacity: 0.85; }
-        .stat-badge .sb-val { font-weight: 900; }
-
-        .streak-text {
-            margin-left: auto;
-            font-size: 0.6rem;
-            color: #888;
-            font-weight: 500;
+        .stat-streak {
+            font-size: 0.7rem;
+            color: #ffd700;
+            font-weight: 800;
+            letter-spacing: 0.3px;
         }
 
         /* ===== COUNTDOWN BAR ===== */
@@ -746,50 +814,117 @@ app.get('/', (req, res) => {
             });
         }
 
-        // ===== TẠO BEAD ROAD GRID =====
-        // T (Hòa) không chiếm ô mới, thêm gạch xéo xanh lá vào ô B/P trước đó
-        function buildBeadGrid(results) {
-            if (!results) return '<span style="font-size:0.75rem;color:#bbb;font-style:italic;">Đang chờ...</span>';
-
+        // ===== THUẬT TOÁN ĐƯỜNG LỚN (BIG ROAD) =====
+        function generateBigRoad(results) {
             var ROWS = 6;
+            var matrix = {}; // key: "col,row" => { type: 'B'|'P', ties: 0 }
+            var lastType = null;
+            var lastCol = 0;
+            var lastRow = 0;
+            var colStart = 0;
+            var maxCol = 0;
+
+            if (!results) return { matrix: matrix, maxCol: 0 };
+
             var chars = results.split('');
-
-            // Bước 1: Tạo danh sách bead (chỉ B và P), đánh dấu ô nào có Tie
-            var beads = []; // { type: 'B'|'P', hasTie: bool }
             for (var i = 0; i < chars.length; i++) {
-                if (chars[i] === 'B' || chars[i] === 'P') {
-                    beads.push({ type: chars[i], hasTie: false });
-                } else if (chars[i] === 'T') {
-                    // Gạch xéo lên ô trước đó
-                    if (beads.length > 0) {
-                        beads[beads.length - 1].hasTie = true;
+                var ch = chars[i];
+                // Hòa: gạch chéo xanh lá đè lên kết quả trước đó, không chiếm ô và không đổi cột
+                if (ch === 'T') {
+                    if (lastType !== null) {
+                        var key = lastCol + ',' + lastRow;
+                        if (matrix[key]) {
+                            matrix[key].ties = (matrix[key].ties || 0) + 1;
+                        }
                     }
+                    continue;
+                }
+
+                if (ch !== 'B' && ch !== 'P') continue;
+
+                if (lastType === null) {
+                    lastType = ch;
+                    lastCol = 0;
+                    lastRow = 0;
+                    colStart = 0;
+                    matrix['0,0'] = { type: ch, ties: 0 };
+                    maxCol = 0;
+                } else if (ch === lastType) {
+                    // Cùng loại (Cái tiếp Cái, Con tiếp Con): đi dọc xuống ô dưới trong cùng cột
+                    var nextRow = lastRow + 1;
+                    var nextCol = lastCol;
+                    // Nếu chạm đáy (vượt 6 hàng) hoặc ô bên dưới đã có hình -> bẻ sang phải (đuôi rồng)
+                    if (nextRow >= ROWS || matrix[nextCol + ',' + nextRow]) {
+                        nextCol = lastCol + 1;
+                        nextRow = lastRow;
+                    }
+                    lastCol = nextCol;
+                    lastRow = nextRow;
+                    matrix[lastCol + ',' + lastRow] = { type: ch, ties: 0 };
+                    if (lastCol > maxCol) maxCol = lastCol;
+                } else {
+                    // Đổi bên (từ Cái sang Con, hoặc từ Con sang Cái): chuyển sang cột bên cạnh từ hàng 0
+                    lastType = ch;
+                    colStart = colStart + 1;
+                    while (matrix[colStart + ',0']) {
+                        colStart++;
+                    }
+                    lastCol = colStart;
+                    lastRow = 0;
+                    matrix[lastCol + ',0'] = { type: ch, ties: 0 };
+                    if (lastCol > maxCol) maxCol = lastCol;
                 }
             }
+            return { matrix: matrix, maxCol: maxCol };
+        }
 
-            // Bước 2: Chia thành cột 6 hàng
-            var cols = [];
-            for (var j = 0; j < beads.length; j += ROWS) {
-                cols.push(beads.slice(j, j + ROWS));
+        // ===== XUẤT LƯỚI ĐƯỜNG LỚN 12 CỘT x 6 HÀNG =====
+        // 2 cột cuối (cột 11 và 12, index 10 và 11) luôn để trống
+        // Khi dữ liệu chạm đến cột 10 (index 9), tự động đẩy sang trái
+        function buildBigRoadHtml(results, goodRoad) {
+            var roadData = generateBigRoad(results);
+            var matrix = roadData.matrix;
+            var maxCol = roadData.maxCol;
+
+            var VISIBLE_COLS = 12;
+            var ROWS = 6;
+
+            // Nếu maxCol >= 10, đẩy để cột maxCol nằm ở vị trí index 9, giữ 2 cột 10 và 11 luôn trống!
+            var startCol = 0;
+            if (maxCol >= 10) {
+                startCol = maxCol - 9;
             }
 
-            // Bước 3: Render HTML
-            var html = '<div class="bead-grid" style="direction:ltr;">';
-            for (var c = 0; c < cols.length; c++) {
-                html += '<div class="bead-col">';
+            var cellsHtml = '';
+            for (var c = 0; c < VISIBLE_COLS; c++) {
+                var actualCol = startCol + c;
                 for (var r = 0; r < ROWS; r++) {
-                    if (r < cols[c].length) {
-                        var b = cols[c][r];
-                        var tieClass = b.hasTie ? ' has-tie' : '';
-                        html += '<div class="bead bead-' + b.type + tieClass + '"></div>';
-                    } else {
-                        html += '<div class="bead-empty"></div>';
+                    var key = actualCol + ',' + r;
+                    var cell = matrix[key];
+                    var inner = '';
+                    if (cell) {
+                        var tieClass = '';
+                        var tieHtml = '';
+                        if (cell.ties === 1) {
+                            tieClass = ' has-tie-single';
+                        } else if (cell.ties >= 2) {
+                            tieClass = ' has-tie-multi';
+                            tieHtml = '<span class="tie-center-num">' + cell.ties + '</span>';
+                        }
+                        inner = '<div class="bead-ring bead-' + cell.type + tieClass + '">' + tieHtml + '</div>';
                     }
+                    cellsHtml += '<div class="road-cell">' + inner + '</div>';
                 }
-                html += '</div>';
             }
-            html += '</div>';
-            return html;
+
+            var goodRoadHtml = goodRoad
+                ? '<div class="good-road-ribbon">' + goodRoad + '</div>'
+                : '';
+
+            return '<div class="road-container">' +
+                '<div class="road-grid">' + cellsHtml + '</div>' +
+                goodRoadHtml +
+            '</div>';
         }
 
         // ===== TẠO CARD HTML =====
@@ -800,9 +935,9 @@ app.get('/', (req, res) => {
             var isC = id.startsWith('C');
             var label = isC ? 'Baccarat ' + id : 'Baccarat B' + id;
 
-            var goodRoadHtml = goodRoad
-                ? '<div class="good-road-overlay">' + goodRoad + '</div>'
-                : '';
+            var streakInfo = (stats.current_streak && stats.current_streak !== "0")
+                ? stats.current_streak
+                : "";
 
             return '<a href="/api/baccarat/' + id + '" class="card-link" target="_blank">' +
                 '<div class="table-card">' +
@@ -810,17 +945,16 @@ app.get('/', (req, res) => {
                         '<div class="table-name">' +
                             '<span class="new-tag">NEW</span>' + label +
                         '</div>' +
-                        '<div class="hand-count">🃏 <span class="count-num">' + stats.total + '</span></div>' +
+                        '<div class="hand-status">Mở bài (' + stats.total + ')</div>' +
                     '</div>' +
-                    '<div class="bead-area">' +
-                        buildBeadGrid(results) +
-                        goodRoadHtml +
-                    '</div>' +
+                    buildBigRoadHtml(results, goodRoad) +
                     '<div class="card-bottom">' +
-                        '<span class="stat-badge sb-b"><span class="sb-label">B</span> <span class="sb-val">' + stats.b_count + '</span></span>' +
-                        '<span class="stat-badge sb-p"><span class="sb-label">P</span> <span class="sb-val">' + stats.p_count + '</span></span>' +
-                        '<span class="stat-badge sb-t"><span class="sb-label">T</span> <span class="sb-val">' + stats.t_count + '</span></span>' +
-                        '<span class="streak-text">Chuỗi: ' + stats.current_streak + ' | Dài nhất: ' + stats.longest_streak + '</span>' +
+                        '<div class="stat-group">' +
+                            '<div class="stat-pill"><span class="stat-dot dot-b">B</span> <span>' + stats.b_count + '</span></div>' +
+                            '<div class="stat-pill"><span class="stat-dot dot-p">P</span> <span>' + stats.p_count + '</span></div>' +
+                            '<div class="stat-pill"><span class="stat-dot dot-t">T</span> <span>' + stats.t_count + '</span></div>' +
+                        '</div>' +
+                        (streakInfo ? '<div class="stat-streak">🔥 ' + streakInfo + '</div>' : '') +
                     '</div>' +
                 '</div>' +
             '</a>';
